@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menu-Driven Calculator</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 480px; margin: 70px auto; padding: 20px; }
+    input, select, button { display: block; width: 100%; box-sizing: border-box; padding: 10px; margin: 12px 0; }
+    button { background: #184d8c; color: white; border: 0; cursor: pointer; }
+    .result { font-weight: bold; color: #166534; }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Menu-Driven Calculator</h1>
+  <form method="post">
+    <label>First number</label>
+    <input type="number" step="any" name="a" required>
+    <label>Second number</label>
+    <input type="number" step="any" name="b" required>
+    <label>Choose operation</label>
+    <select name="operation" required>
+      {% for key, label in operations.items() %}
+      <option value="{{ key }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Calculate</button>
+  </form>
+  {% if result is not none %}<p class="result">Result: {{ result }}</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+</body>
+</html>

@@ -1,0 +1,212 @@
+# name: Calculator Five-Stage CI-CD
+
+# on:
+#   push:
+#     branches: [main]
+
+# permissions:
+#   contents: read
+
+# jobs:
+#   source_code:
+#     name: "1 - Source Code"
+#     runs-on: windows-latest
+#     steps:
+#       - name: Checkout source
+#         uses: actions/checkout@v4
+
+#       - name: Verify application file
+#         shell: powershell
+#         run: |
+#           if (!(Test-Path app.py)) { throw "app.py is missing" }
+#           Write-Host "Source code present"
+
+#   version_control:
+#     name: "2 - Version Control"
+#     needs: source_code
+#     runs-on: windows-latest
+#     steps:
+#       - name: Checkout committed version
+#         uses: actions/checkout@v4
+
+#       - name: Display commit ID
+#         shell: powershell
+#         run: |
+#           git rev-parse HEAD
+#           Write-Host "Commit: $env:GITHUB_SHA"
+
+#   continuous_integration:
+#     name: "3 - Continuous Integration"
+#     needs: version_control
+#     runs-on: windows-latest
+#     steps:
+#       - name: Checkout source
+#         uses: actions/checkout@v4
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.12'
+
+#       - name: Install dependencies
+#         shell: powershell
+#         run: python -m pip install -r requirements.txt
+
+#       - name: Run automated tests
+#         shell: powershell
+#         run: python -m pytest -v
+
+#   build:
+#     name: "4 - Build"
+#     needs: continuous_integration
+#     runs-on: windows-latest
+#     steps:
+#       - name: Checkout source
+#         uses: actions/checkout@v4
+
+#       - name: Log in to Docker Hub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+#       - name: Build image with unique commit tag
+#         shell: powershell
+#         run: |
+#           $image = "shivaranjini569/menu-calculator:$env:GITHUB_SHA"
+#           docker build -t $image .
+#           if ($LASTEXITCODE -ne 0) { throw "Docker build failed" }
+#           docker push $image
+#           if ($LASTEXITCODE -ne 0) { throw "Docker push failed" }
+#           Write-Host "Published $image"
+
+#   deployment:
+#     name: "5 - Deployment"
+#     needs: build
+#     runs-on: windows-latest
+#     steps:
+#       - name: Checkout Kubernetes manifests
+#         uses: actions/checkout@v4
+
+#       - name: Deploy this push's image to Kubernetes
+#         shell: powershell
+#         run: |
+#           kubectl config use-context docker-desktop
+#           if ($LASTEXITCODE -ne 0) { throw "Docker Desktop context missing" }
+#           $image = "shivaranjini569/menu-calculator:$env:GITHUB_SHA"
+#           $manifest = (Get-Content 'k8s/deployment.yaml' -Raw).Replace('IMAGE_PLACEHOLDER', $image)
+#           $manifest | kubectl apply -f -
+#           if ($LASTEXITCODE -ne 0) { throw "Deployment apply failed" }
+#           kubectl apply -f k8s/service.yaml
+#           if ($LASTEXITCODE -ne 0) { throw "Service apply failed" }
+#           kubectl rollout status deployment/menu-calculator --timeout=180s
+#           if ($LASTEXITCODE -ne 0) { throw "Rollout failed" }
+#           kubectl get deployments
+#           kubectl get pods
+#           kubectl get services
+#           $deployed = kubectl get deployment menu-calculator -o jsonpath='{.spec.template.spec.containers[0].image}'
+#           if ($deployed -ne $image) { throw "Wrong deployed image: $deployed" }
+#           Write-Host "Verified deployed image: $deployed"
+name: Calculator Five-Stage CI-CD
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  source_code:
+    name: "1 - Source Code"
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify application file
+        shell: powershell
+        run: |
+          if (!(Test-Path app.py)) { throw "app.py is missing" }
+          Write-Host "Source code present"
+
+  version_control:
+    name: "2 - Version Control"
+    needs: source_code
+    runs-on: windows-latest
+    steps:
+      - name: Checkout committed version
+        uses: actions/checkout@v4
+
+      - name: Display commit ID
+        shell: powershell
+        run: |
+          git rev-parse HEAD
+          Write-Host "Commit: $env:GITHUB_SHA"
+
+  continuous_integration:
+    name: "3 - Continuous Integration"
+    needs: version_control
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: powershell
+        run: python -m pip install -r requirements.txt
+
+      - name: Run automated tests
+        shell: powershell
+        run: python -m pytest -v
+
+  build:
+    name: "4 - Build"
+    needs: continuous_integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build image with unique commit tag
+        run: |
+          IMAGE="shivaranjini569/menu-calculator:${{ github.sha }}"
+          docker build -t $IMAGE .
+          docker push $IMAGE
+
+  deployment:
+    name: "5 - Deployment"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kubernetes manifests
+        uses: actions/checkout@v4
+
+      - name: Deploy this push's image to Kubernetes
+        run: |
+          IMAGE="shivaranjini569/menu-calculator:${{ github.sha }}"
+          
+          # Replace placeholder inside deployment manifest file using Linux sed
+          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/deployment.yaml
+          
+          # Execute cluster deployments
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          
+          # Confirm application deployment rollout status
+          kubectl rollout status deployment/menu-calculator --timeout=180s
+          
+          kubectl get deployments
+          kubectl get pods
+          kubectl get services
