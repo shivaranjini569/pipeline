@@ -16,13 +16,24 @@ def test_subtraction():
     assert calculate(10, 5, "subtract") == 5
 
 
-def test_menu_shows_only_push1_operations(client):
+def test_multiplication():
+    assert calculate(10, 5, "multiply") == 50
+
+
+def test_division():
+    assert calculate(10, 5, "divide") == 2
+
+
+def test_divide_by_zero():
+    with pytest.raises(ZeroDivisionError):
+        calculate(10, 0, "divide")
+
+
+def test_menu_shows_all_four_operations(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Addition" in response.data
-    assert b"Subtraction" in response.data
-    assert b"Multiplication" not in response.data
-    assert b"Division" not in response.data
+    for label in (b"Addition", b"Subtraction", b"Multiplication", b"Division"):
+        assert label in response.data
 
 
 def test_health(client):

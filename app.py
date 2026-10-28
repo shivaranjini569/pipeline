@@ -5,6 +5,8 @@ app = Flask(__name__)
 OPERATIONS = {
     "add": "Addition",
     "subtract": "Subtraction",
+    "multiply": "Multiplication",
+    "divide": "Division",
 }
 
 
@@ -13,6 +15,12 @@ def calculate(a, b, operation):
         return a + b
     if operation == "subtract":
         return a - b
+    if operation == "multiply":
+        return a * b
+    if operation == "divide":
+        if b == 0:
+            raise ZeroDivisionError("Cannot divide by zero")
+        return a / b
     raise ValueError("Invalid operation")
 
 
@@ -28,6 +36,8 @@ def home():
             result = calculate(a, b, operation)
         except (ValueError, TypeError):
             error = "Enter valid numbers and select an available operation."
+        except ZeroDivisionError:
+            error = "Cannot divide by zero."
     return render_template(
         "index.html", operations=OPERATIONS, result=result, error=error
     )
